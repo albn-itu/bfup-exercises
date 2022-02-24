@@ -6,35 +6,30 @@ type Dict = D of char * Dictionary<char, Dict> * bool
 
 let sep = '$'
 
-let emptyDictionary() : Dictionary<char, Dict> = Dictionary() 
-
-let empty () : Dict = D(' ', emptyDictionary(), false)
-
-let getNode (w: char) (dict: Dict) : Dict option =
-    match dict with
-    | D (_, children, _) ->
-        match children.TryGetValue(w) with
-        | (true, value) -> Some value
+type Dictionary<'a, 'b> with
+    member x.GetValueOption(key: 'a) : 'b option =
+        match x.TryGetValue(key) with
+        | (true, value) -> Some(value)
         | (false, _) -> None
-      
-let rec actuallyInsert (word: char list) (dict: Dict) : Dict =
-    match dict with
-    | D (currC, children, isLeaf) ->
-        match word with
-        | [] -> D(currC, children, true)
-        | c :: w ->
-            let node = getNode c dict
 
-            match node with
-            | Some node ->
-                children.[c] <- actuallyInsert w node
-                D(currC, children, isLeaf)
-            | None ->
-                let newNode = D(c, emptyDictionary(), false)
+let emptyDictionary () : Dictionary<char, Dict> = Dictionary()
 
-                children.[c] <- actuallyInsert w newNode
+let empty () : Dict = D(' ', emptyDictionary (), false)
 
-                D(currC, children, isLeaf)
+let getNode (w: char) (D (_, children, _)) : Dict option = children.GetValueOption(w)
+
+let rec actuallyInsert (word: char list) (D (currC, currChildren, currIsLeaf)) : Dict =
+    match word with
+    | [] -> D(currC, currChildren, true)
+    | nextChar :: nextWord ->
+        let nextNode =
+            match currChildren.GetValueOption(nextChar) with
+            | Some node -> node
+            | None -> D(nextChar, emptyDictionary (), false)
+
+        currChildren.[nextChar] <- actuallyInsert nextWord nextNode
+
+        D(currC, currChildren, currIsLeaf)
 
 let insert (word: string) (dict: Dict) : Dict =
     let arr = word.ToCharArray()
@@ -53,18 +48,12 @@ let insert (word: string) (dict: Dict) : Dict =
     newDict
 
 let rec step (c: char) (dict: Dict) : (bool * Dict) option =
-    match getNode c dict with
-    | Some node ->
+    getNode c dict
+    |> Option.map (fun node ->
         match node with
-        | D (_, _, isLeaf) -> Some(isLeaf, node)
-    | None -> None
+        | D (_, _, isLeaf) -> (isLeaf, node))
 
-let reverse (dict: Dict) : (bool * Dict) option =
-    match getNode sep dict with
-    | Some node ->
-        match node with
-        | D (_, _, isLeaf) -> Some(isLeaf, node)
-    | None -> None
+let reverse (dict: Dict) : (bool * Dict) option = step sep dict
 
 let rec actuallyLookup (word: char list) (dict: Dict) : bool =
     match word with
@@ -79,7 +68,11 @@ let rec actuallyLookup (word: char list) (dict: Dict) : bool =
             | Some (_, node) -> actuallyLookup ([ c ] @ w) node
             | None -> false
 
-let lookup (word: string) (dict: Dict) : bool =
-    let arr = word.ToCharArray() |> Array.toList
 
-    actuallyLookup arr dict
+let lookup (word: string) (dict: Dict) : bool =
+    let (pre, suff) =
+        word.ToCharArray()
+        |> Array.toList
+        |> List.splitAt 1
+
+    actuallyLookup (pre @ [ sep ] @ suff) dict

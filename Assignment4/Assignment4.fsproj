@@ -10,6 +10,8 @@
     <Compile Include="MultiSet.fs" />
     <Compile Include="Dict.fsi" />
     <Compile Include="Dict.fs" />
+    <Compile Include="Trie.fs" />
+    <Compile Include="Gaddag.fs" />
   </ItemGroup>
 
 </Project>

@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="MultiSetTests.fs" />
     <Compile Include="DictTests.fs" />
+    <Compile Include="CodeJudge.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
