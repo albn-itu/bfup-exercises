@@ -13,23 +13,24 @@ type Error =
     | IndexOutOfBounds of int
     | DivisionByZero
     | ReservedName of string
+    | EmptyStack
 
-val mkState: (string * int) list -> (char * int) list -> string list -> State
+val mkState : (string * int) list -> (char * int) list -> string list -> State
 
-val ret: 'a -> SM<'a>
-val fail: Error -> SM<'a>
-val (>>=): SM<'a> -> ('a -> SM<'b>) -> SM<'b>
-val (>>>=): SM<unit> -> SM<'a> -> SM<'a>
+val ret : 'a -> SM<'a>
+val fail : Error -> SM<'a>
+val (>>=) : SM<'a> -> ('a -> SM<'b>) -> SM<'b>
+val (>>>=) : SM<unit> -> SM<'a> -> SM<'a>
 
-val evalSM: State -> SM<'a> -> Result<'a, Error>
+val evalSM : State -> SM<'a> -> Result<'a, Error>
 
-val push: SM<unit>
-val pop: SM<unit>
+val push : SM<unit>
+val pop : SM<unit>
 
-val lookup: string -> SM<int>
-val update: string -> int -> SM<unit>
-val declare: string -> SM<unit>
+val lookup : string -> SM<int>
+val update : string -> int -> SM<unit>
+val declare : string -> SM<unit>
 
-val wordLength: SM<int>
-val characterValue: int -> SM<char>
-val pointValue: int -> SM<int>
+val wordLength : SM<int>
+val characterValue : int -> SM<char>
+val pointValue : int -> SM<int>

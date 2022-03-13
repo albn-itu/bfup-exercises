@@ -130,6 +130,79 @@ let main argv =
 
     printfn ""
 
+    printfn "Testing update:"
+    printfn "%A" (update "x" 7 >>>= lookup "x" |> evalSM state)
+
+    printfn
+        "%A"
+        (push >>>= update "x" 7 >>>= lookup "x"
+         |> evalSM state)
+
+    printfn
+        "%A"
+        (push >>>= update "x" 7 >>>= pop >>>= lookup "x"
+         |> evalSM state)
+
+    printfn
+        "%A"
+        (pop >>>= update "x" 7 >>>= push >>>= lookup "x"
+         |> evalSM state)
+
+    printfn
+        "%A"
+        (lookup "x"
+         >>= (fun v1 -> lookup "y" >>= (fun v2 -> update "x" (v1 + v2)))
+         >>>= lookup "x"
+         |> evalSM state)
+
+    printfn
+        "%A"
+        (lookup "x"
+         >>= (fun v1 -> lookup "y" >>= (fun v2 -> update "x" (v1 + v2)))
+         >>>= lookup "y"
+         |> evalSM state)
+
+    printfn ""
+
+    printfn "Testing declare:"
+    printfn "%A" (declare "z" >>>= lookup "z" |> evalSM state)
+
+    printfn
+        "%A"
+        (declare "z" >>>= update "z" 123 >>>= lookup "z"
+         |> evalSM state)
+
+    printfn "%A" (declare "x" >>>= lookup "x" |> evalSM state)
+    printfn "%A" (declare "z" >>>= declare "z" |> evalSM state)
+
+    printfn
+        "%A"
+        (declare "z"
+         >>>= update "z" 123
+         >>>= push
+         >>>= declare "z"
+         >>>= update "z" 456
+         >>>= lookup "z"
+         |> evalSM state)
+
+    printfn
+        "%A"
+        (declare "z"
+         >>>= update "z" 123
+         >>>= push
+         >>>= declare "z"
+         >>>= update "z" 456
+         >>>= pop
+         >>>= lookup "z"
+         |> evalSM state)
+
+    printfn
+        "%A"
+        (declare "_pos_" >>>= lookup "_pos_"
+         |> evalSM state)
+
+    printfn ""
+
     printfn "Testing arithEval2:"
     printfn "%A" (arithEval2 (V "x" .+. N 10) |> evalSM state)
     printfn "%A" (arithEval2 (WL .*. N 10) |> evalSM state)
@@ -205,81 +278,6 @@ let main argv =
 
     printfn ""
 
-    printfn "Testing update:"
-    printfn "%A" (update "x" 7 >>>= lookup "x" |> evalSM state)
-
-    printfn
-        "%A"
-        (push >>>= update "x" 7 >>>= lookup "x"
-         |> evalSM state)
-
-    printfn
-        "%A"
-        (push >>>= update "x" 7 >>>= pop >>>= lookup "x"
-         |> evalSM state)
-
-    printfn
-        "%A"
-        (pop >>>= update "x" 7 >>>= push >>>= lookup "x"
-         |> evalSM state)
-
-    printfn
-        "%A"
-        (lookup "x"
-         >>= (fun v1 -> lookup "y" >>= (fun v2 -> update "x" (v1 + v2)))
-         >>>= lookup "x"
-         |> evalSM state)
-
-    printfn
-        "%A"
-        (lookup "x"
-         >>= (fun v1 -> lookup "y" >>= (fun v2 -> update "x" (v1 + v2)))
-         >>>= lookup "y"
-         |> evalSM state)
-
-    printfn ""
-
-    printfn "Testing declare:"
-    printfn "%A" (declare "z" >>>= lookup "z" |> evalSM state)
-
-    printfn
-        "%A"
-        (declare "z" >>>= update "z" 123 >>>= lookup "z"
-         |> evalSM state)
-
-    printfn "%A" (declare "x" >>>= lookup "x" |> evalSM state)
-    printfn "%A" (declare "z" >>>= declare "z" |> evalSM state)
-
-    printfn
-        "%A"
-        (declare "z"
-         >>>= update "z" 123
-         >>>= push
-         >>>= declare "z"
-         >>>= update "z" 456
-         >>>= lookup "z"
-         |> evalSM state)
-
-    printfn
-        "%A"
-        (declare "z"
-         >>>= update "z" 123
-         >>>= push
-         >>>= declare "z"
-         >>>= update "z" 456
-         >>>= pop
-         >>>= lookup "z"
-         |> evalSM state)
-
-    printfn
-        "%A"
-        (declare "_pos_" >>>= lookup "_pos_"
-         |> evalSM state)
-
-    printfn ""
-
-
-
     printfn "Testing stmntEval2:"
 
     printfn
@@ -310,8 +308,12 @@ let main argv =
     printfn ""
 
     let arithSingleLetterScore = PV(V "_pos_") .+. (V "_acc_")
-    let arithDoubleLetterScore = ((N 2) .*. PV(V "_pos_")) .+. (V "_acc_")
-    let arithTripleLetterScore = ((N 3) .*. PV(V "_pos_")) .+. (V "_acc_")
+
+    let arithDoubleLetterScore =
+        ((N 2) .*. PV(V "_pos_")) .+. (V "_acc_")
+
+    let arithTripleLetterScore =
+        ((N 3) .*. PV(V "_pos_")) .+. (V "_acc_")
 
     let arithDoubleWordScore = N 2 .*. V "_acc_"
     let arithTripleWordScore = N 3 .*. V "_acc_"
@@ -487,7 +489,9 @@ let main argv =
 
 
     printfn "Testing mkBoard"
-    let standardBoard = mkBoard (0, 0) stmntSingleLetterScore standardBoardFun ids
+
+    let standardBoard =
+        mkBoard (0, 0) stmntSingleLetterScore standardBoardFun ids
 
 
     for y in -10 .. 10 do

@@ -6,6 +6,7 @@ type Error =
     | IndexOutOfBounds of int
     | DivisionByZero
     | ReservedName of string
+    | EmptyStack
 
 type Result<'a, 'b> =
     | Success of 'a
@@ -43,18 +44,11 @@ let fail err : SM<'a> = S(fun s -> Failure err)
 let (>>=) x f = bind f x
 let (>>>=) x f = x >>= (fun () -> f)
 
-let push: SM<unit> = S(fun s -> Success((), { s with vars = Map.empty :: s.vars }))
+let push: SM<unit> =
+    S(fun s -> Success((), { s with vars = Map.empty :: s.vars }))
 
 let pop: SM<unit> =
-    S (fun s ->
-        Success(
-            (),
-            { s with
-                vars =
-                    match s.vars with
-                    | [] -> []
-                    | _ :: xs -> xs }
-        ))
+    S(fun s -> Success((), { s with vars = s.vars.Tail }))
 
 let wordLength: SM<int> = S(fun s -> Success(s.word.Length, s))
 
@@ -83,5 +77,47 @@ let lookup (x: string) : SM<int> =
         | Some v -> Success(v, s)
         | None -> Failure(VarNotFound x))
 
-let declare (var: string) : SM<unit> = failwith "Not implemented"
-let update (var: string) (value: int) : SM<unit> = failwith "Not implemented"
+let declare (var: string) : SM<unit> =
+    let isReserved (var: string) (state: State) =
+        match state.reserved.Contains var with
+        | true -> Failure(ReservedName var)
+        | false -> Success((), state)
+
+    let stackEmpty (state: State) : Result<Map<string, int> * (Map<string, int> list), Error> =
+        match state.vars with
+        | [] -> Failure(EmptyStack)
+        | xs :: x -> Success((xs, x))
+
+    let exists (var: string) (state: State) =
+        match state.vars.Head.ContainsKey var with
+        | true -> Failure(VarExists var)
+        | false -> Success((), state)
+
+    S (fun s ->
+        match isReserved var s with
+        | Success _ ->
+            match stackEmpty s with
+            | Success (x, xs) ->
+                match exists var s with
+                | Success _ -> Success((), { s with vars = (x.Add(var, 0)) :: xs })
+                | Failure err -> Failure err
+            | Failure err -> Failure err
+        | Failure err -> Failure err)
+
+
+let update (var: string) (value: int) : SM<unit> =
+    let rec aux (values: Map<string, int> list) (x: string) (value: int) =
+        match values with
+        | [] -> Failure(VarNotFound var)
+        | m :: ms ->
+            match m.ContainsKey x with
+            | true -> Success((), (m.Add(x, value)) :: ms)
+            | false ->
+                match aux ms x value with
+                | Success ((), s) -> Success((), m :: s)
+                | Failure (err) -> Failure(err)
+
+    S (fun s ->
+        match aux (s.vars) var value with
+        | Success ((), b) -> Success((), { s with vars = b })
+        | Failure (err) -> Failure(err))
