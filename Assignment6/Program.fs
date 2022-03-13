@@ -203,6 +203,36 @@ let main argv =
 
     printfn ""
 
+    printfn "Testing stmntEval:"
+
+    printfn
+        "%A"
+        (stmntEval (Ass("x", N 5)) >>>= lookup "x"
+         |> evalSM emptyState)
+
+    printfn
+        "%A"
+        (stmntEval (Seq(Declare "x", Ass("x", N 5)))
+         >>>= lookup "x"
+         |> evalSM emptyState)
+
+    printfn
+        "%A"
+        (stmntEval (Seq(Declare "x", Seq(Declare "y", Seq(Ass("x", WL), Ass("y", N 7)))))
+         >>>= lookup "x"
+         >>= (fun vx -> lookup "y" >>= (fun vy -> ret (vx, vy)))
+         |> evalSM emptyState)
+
+    printfn
+        "%A"
+        (stmntEval (Seq(Declare "x", Seq(Declare "y", Seq(Ass("x", WL), Ass("y", N 7)))))
+         >>>= lookup "x"
+         >>= (fun vx -> lookup "y" >>= (fun vy -> ret (vx, vy)))
+         |> evalSM state)
+
+    printfn ""
+
+
     printfn "Testing arithEval2:"
     printfn "%A" (arithEval2 (V "x" .+. N 10) |> evalSM state)
     printfn "%A" (arithEval2 (WL .*. N 10) |> evalSM state)
@@ -243,37 +273,6 @@ let main argv =
     printfn
         "%A"
         (boolEval2 (IsVowel(CV(V "x" .-. N 1)))
-         |> evalSM state)
-
-    printfn ""
-
-
-
-    printfn "Testing stmntEval:"
-
-    printfn
-        "%A"
-        (stmntEval (Ass("x", N 5)) >>>= lookup "x"
-         |> evalSM emptyState)
-
-    printfn
-        "%A"
-        (stmntEval (Seq(Declare "x", Ass("x", N 5)))
-         >>>= lookup "x"
-         |> evalSM emptyState)
-
-    printfn
-        "%A"
-        (stmntEval (Seq(Declare "x", Seq(Declare "y", Seq(Ass("x", WL), Ass("y", N 7)))))
-         >>>= lookup "x"
-         >>= (fun vx -> lookup "y" >>= (fun vy -> ret (vx, vy)))
-         |> evalSM emptyState)
-
-    printfn
-        "%A"
-        (stmntEval (Seq(Declare "x", Seq(Declare "y", Seq(Ass("x", WL), Ass("y", N 7)))))
-         >>>= lookup "x"
-         >>= (fun vx -> lookup "y" >>= (fun vy -> ret (vx, vy)))
          |> evalSM state)
 
     printfn ""

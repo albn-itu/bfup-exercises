@@ -11,7 +11,9 @@ let hello =
       ('L', 1)
       ('O', 1) ]
 
-let state = mkState [ ("x", 5); ("y", 42) ] hello [ "_pos_"; "_result_" ]
+let state =
+    mkState [ ("x", 5); ("y", 42) ] hello [ "_pos_"; "_result_" ]
+
 let emptyState = mkState [] [] []
 
 let arith (a: SM<int>) (b: SM<int>) (f: (int -> int -> int)) =
@@ -144,7 +146,6 @@ let rec boolEval b : SM<bool> =
         boolEval b1
         >>= (fun x -> boolEval b2 >>= (fun y -> ret (x && y)))
     | IsVowel c -> charEval c >>= (fun x -> ret (isVowel x))
-
     | IsLetter c ->
         charEval c
         >>= (fun x -> ret (System.Char.IsLetter x))
@@ -162,7 +163,28 @@ type stm =
     | ITE of bExp * stm * stm (* if-then-else statement *)
     | While of bExp * stm (* while statement *)
 
-let rec stmntEval stmnt : SM<unit> = failwith "Not implemented"
+let rec stmntEval stmnt : SM<unit> =
+    match stmnt with
+    | Declare v -> declare v
+    | Ass (v, a) -> arithEval a >>= (fun x -> update v x)
+    | Skip -> ret ()
+    | Seq (s1, s2) -> stmntEval s1 >>= (fun _ -> stmntEval s2)
+    | ITE (b, s1, s2) ->
+        boolEval b
+        >>= (fun x ->
+            push
+            >>>= (if x then stmntEval s1 else stmntEval s2)
+            >>>= pop)
+    | While (b, s) ->
+        boolEval b
+        >>= (fun x ->
+            push
+            >>>= (if x then
+                      stmntEval s >>= (fun _ -> stmntEval (While(b, s)))
+                  else
+                      ret ())
+            >>>= pop)
+
 
 (* Part 3 (Optional) *)
 
@@ -176,11 +198,127 @@ type StateBuilder() =
 
 let prog = new StateBuilder()
 
-let arithEval2 a = failwith "Not implemented"
-let charEval2 c = failwith "Not implemented"
-let rec boolEval2 b = failwith "Not implemented"
+let rec arithEval2 (a: aExp) : SM<int> =
+    prog {
+        match a with
+        | N n -> return n
+        | V v ->
+            let! x = lookup v
+            return x
+        | WL ->
+            let! wl = wordLength
+            return wl
+        | PV p ->
+            let! x = arithEval2 p
+            let! pv = pointValue x
+            return pv
+        | Add (a, b) ->
+            let! x = arithEval2 a
+            let! y = arithEval2 b
+            return x + y
+        | Sub (a, b) ->
+            let! x = arithEval2 a
+            let! y = arithEval2 b
+            return x - y
+        | Mul (a, b) ->
+            let! x = arithEval2 a
+            let! y = arithEval2 b
+            return x * y
+        | Div (a, b) ->
+            let x = arithEval2 a
+            let y = arithEval2 b
+            return! arith0Sens x y (fun x y -> x / y)
+        | Mod (a, b) ->
+            let x = arithEval2 a
+            let y = arithEval2 b
+            return! arith0Sens x y (fun x y -> x % y)
+        | CharToInt (c) ->
+            let! x = charEval2 c
+            return int x
+    }
 
-let stmntEval2 stm = failwith "Not implemented"
+and charEval2 c =
+    prog {
+        match c with
+        | C c -> return c
+        | CV v ->
+            let! x = arithEval2 v
+            return! characterValue x
+        | ToUpper c ->
+            let! x = charEval2 c
+            return System.Char.ToUpper x
+        | ToLower c ->
+            let! x = charEval2 c
+            return System.Char.ToLower x
+        | IntToChar i ->
+            let! x = arithEval2 i
+            return char x
+    }
+
+let rec boolEval2 b =
+    prog {
+        match b with
+        | TT -> return true
+        | FF -> return false
+        | AEq (a, b) ->
+            let! x = arithEval2 a
+            let! y = arithEval2 b
+            return x = y
+        | ALt (a, b) ->
+            let! x = arithEval2 a
+            let! y = arithEval2 b
+            return x < y
+        | Not b ->
+            let! x = boolEval2 b
+            return not x
+        | Conj (b1, b2) ->
+            let! x = boolEval2 b1
+            let! y = boolEval2 b2
+            return x && y
+        | IsVowel c ->
+            let! x = charEval2 c
+            return isVowel x
+        | IsLetter c ->
+            let! x = charEval2 c
+            return System.Char.IsLetter x
+        | IsDigit c ->
+            let! x = charEval2 c
+            return System.Char.IsDigit x
+    }
+
+let rec stmntEval2 stm =
+    prog {
+        match stm with
+        | Declare v -> do! declare v
+        | Ass (v, a) ->
+            let! x = arithEval2 a
+            do! update v x
+        | Skip -> return ()
+        | Seq (s1, s2) ->
+            do! stmntEval2 s1
+            do! stmntEval2 s2
+        | ITE (b, s1, s2) ->
+            let! x = boolEval2 b
+            do! push
+
+            if x then
+                do! stmntEval2 s1
+            else
+                do! stmntEval2 s2
+
+            do! pop
+        | While (b, s) ->
+            let! x = boolEval2 b
+            do! push
+
+            if x then
+                do! stmntEval2 s
+                do! stmntEval2 (While(b, s))
+            else
+                return ()
+
+            do! pop
+    }
 
 (* Part 4 (Optional) *)
 
