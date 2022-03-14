@@ -187,7 +187,6 @@ let rec stmntEval stmnt : SM<unit> =
 
 
 (* Part 3 (Optional) *)
-
 type StateBuilder() =
 
     member this.Bind(f, x) = f >>= x
@@ -309,15 +308,14 @@ let rec stmntEval2 stm =
             do! pop
         | While (b, s) ->
             let! x = boolEval2 b
-            do! push
 
             if x then
+                do! push
                 do! stmntEval2 s
+                do! pop
                 do! stmntEval2 (While(b, s))
             else
                 return ()
-
-            do! pop
     }
 
 (* Part 4 (Optional) *)
@@ -325,18 +323,51 @@ let rec stmntEval2 stm =
 type word = (char * int) list
 type squareFun = word -> int -> int -> Result<int, Error>
 
-let stmntToSquareFun stm = failwith "Not implemented"
+let stmntToSquareFun stm =
+    fun w pos acc ->
+        let state =
+            mkState
+                [ ("_pos_", pos)
+                  ("_acc_", acc)
+                  ("_result_", 0) ]
+                w
+                [ "_pos_"; "_acc_"; "_result_" ]
+
+        stmntEval stm >>>= lookup "_result_"
+        |> evalSM state
 
 
 type coord = int * int
 
 type boardFun = coord -> Result<squareFun option, Error>
 
-let stmntToBoardFun stm m = failwith "Not implemented"
+let stmntToBoardFun (stm: stm) (squares: Map<int, squareFun>) : boardFun =
+    fun coord ->
+        let state =
+            mkState
+                [ ("_x_", coord |> fst)
+                  ("_y_", coord |> snd)
+                  ("_result_", 0) ]
+                []
+                [ "_x_"; "_y_"; "_result_" ]
+
+        stmntEval2 stm >>>= lookup "_result_"
+        >>= (fun x ->
+            match squares.TryFind x with
+            | Some x -> ret (Some x)
+            | None -> ret (None))
+        |> evalSM state
 
 type board =
     { center: coord
       defaultSquare: squareFun
       squares: boardFun }
 
-let mkBoard c defaultSq boardStmnt ids = failwith "Not implemented"
+let mkBoard (c: coord) (defaultSq: stm) (boardStmnt: stm) (ids: (int * stm) list) : board =
+    { center = c
+      defaultSquare = stmntToSquareFun defaultSq
+      squares =
+        stmntToBoardFun
+            boardStmnt
+            ((List.map (fun (id, sq) -> (id, stmntToSquareFun sq)) ids)
+             |> Map.ofList) }
