@@ -38,8 +38,8 @@ let palphanumeric = asciiLetter <|> digit <?> "alphanumeric"
 
 let whitespaceChar = satisfy System.Char.IsWhiteSpace <?> "whitespace"
 
-let spaces = many whitespaceChar
-let spaces1 = many1 whitespaceChar
+let spaces = many whitespaceChar <?> "space"
+let spaces1 = many1 whitespaceChar <?> "space1"
 
 let (.>*>.) (p1: Parser<'a>) (p2: Parser<'b>) = p1 .>> spaces .>>. p2
 let (.>*>) (p1: Parser<'a>) (p2: Parser<'b>) = p1 .>> spaces .>> p2
@@ -59,6 +59,9 @@ let unop (p1: Parser<'a>) (p2: Parser<'b>) = p1 >*>. p2
 let binop a p1 p2 = p1 .>*> a .>*>. p2
 let methodOp (method: Parser<'a>) (argParser: Parser<'b>) = unop method (parenthesise argParser)
 
+// ---------------------------------
+// Exercise 7.8
+// ---------------------------------
 let TermParse, tref = createParserForwardedToRef<aExp> ()
 let ProdParse, pref = createParserForwardedToRef<aExp> ()
 let AtomParse, aref = createParserForwardedToRef<aExp> ()
@@ -91,37 +94,39 @@ let NegParse =
     |>> (fun a -> Mul(N -1, a))
     <?> "Neg"
 
-let PointParse =
+let PVParse =
     methodOp pPointValue TermParse |>> PV
     <?> "PointValue"
 
-let VariableParse = pid |>> V <?> "Variable"
+let VParse = pid |>> V <?> "Variable"
 
 let NParse = pint32 |>> N <?> "Int"
 
 let ParParse = parenthesise TermParse
 
-let CharToInParse =
+let CharToIntParse =
     methodOp pCharToInt CharParse |>> CharToInt
     <?> "CharToInt"
 
 do
     aref
     := choice [ NegParse
-                PointParse
-                CharToInParse
-                VariableParse
+                PVParse
+                CharToIntParse
+                VParse
                 NParse
                 ParParse ]
-// negation, point value, variables, and integer literals
 
 let AexpParse = TermParse
 
+// ---------------------------------
+// Exercise 7.9
+// ---------------------------------
 let CParse =
     pchar '\'' >>. anyChar .>> pchar '\'' |>> C
     <?> "CV"
 
-let CharValueParse =
+let CVParse =
     methodOp pCharValue AexpParse |>> CV
     <?> "CharValue"
 
@@ -139,7 +144,7 @@ let IntToCharParse =
 
 do
     cref
-    := choice [ CharValueParse
+    := choice [ CVParse
                 IntToCharParse
                 ToUpperParse
                 ToLowerParse
@@ -147,7 +152,83 @@ do
 
 let CexpParse = CharParse
 
-let BexpParse = pstring "not implemented"
+// ---------------------------------
+// Exercise 7.10
+// ---------------------------------
+let ConjunctionParse, conref = createParserForwardedToRef<bExp> ()
+let EqualityParse, eqref = createParserForwardedToRef<bExp> ()
+let BMethodParse, bmref = createParserForwardedToRef<bExp> ()
+
+let ConjParse =
+    binop (pstring "/\\") EqualityParse ConjunctionParse
+    |>> Conj
+
+let CreateDisj (a: bExp, b: bExp) = (Not a, Not b) |> Conj |> Not
+
+let DisjParse =
+    binop (pstring "\\/") EqualityParse ConjunctionParse
+    |>> fun x -> CreateDisj x
+
+do
+    conref
+    := choice [ ConjParse
+                DisjParse
+                EqualityParse ]
+
+let AEqParse = binop (pchar '=') AexpParse AexpParse |>> AEq
+
+let ANEqParse =
+    binop (pstring "<>") AexpParse AexpParse
+    |>> fun x -> x |> AEq |> Not
+
+let ALtParse = binop (pchar '<') AexpParse AexpParse |>> ALt
+
+let CreateGt (a: aExp, b: aExp) = (b, a) |> ALt |> Not
+
+let ALtOrEqParse =
+    binop (pstring "<=") AexpParse AexpParse
+    |>> fun x -> x |> CreateGt
+
+let AGtParse = binop (pchar '>') AexpParse AexpParse |>> CreateGt
+
+let AGtOrEqParse =
+    binop (pstring ">=") AexpParse AexpParse
+    |>> fun x -> x |> ALt |> Not
+
+do
+    eqref
+    := choice [ AEqParse
+                ANEqParse
+                ALtParse
+                ALtOrEqParse
+                AGtParse
+                AGtOrEqParse
+                BMethodParse ]
+
+let NotParse = pchar '~' >>. ConjunctionParse |>> Not
+
+let IsDigitParse = methodOp pIsDigit CexpParse |>> IsDigit
+
+let IsLetterParser = methodOp pIsDigit CexpParse |>> IsLetter
+
+let IsVowellParse = methodOp pIsDigit CexpParse |>> IsVowel
+
+let TTParse = pTrue |>> fun _ -> TT
+let FFParse = pFalse |>> fun _ -> FF
+
+let ParBParse = parenthesise ConjunctionParse
+
+do
+    bmref
+    := choice [ NotParse
+                IsDigitParse
+                IsLetterParser
+                IsVowellParse
+                TTParse
+                FFParse
+                ParBParse ]
+
+let BexpParse = ConjunctionParse
 
 let stmntParse = pstring "not implemented"
 
