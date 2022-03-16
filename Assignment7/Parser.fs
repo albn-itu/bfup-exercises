@@ -36,7 +36,8 @@ let pdeclare = pstring "declare"
 let pletter = asciiLetter <?> "letter"
 let palphanumeric = asciiLetter <|> digit <?> "alphanumeric"
 
-let whitespaceChar = satisfy System.Char.IsWhiteSpace <?> "whitespace"
+let whitespaceChar =
+    satisfy System.Char.IsWhiteSpace <?> "whitespace"
 
 let spaces = many whitespaceChar <?> "space"
 let spaces1 = many1 whitespaceChar <?> "space1"
@@ -175,25 +176,29 @@ do
                 DisjParse
                 EqualityParse ]
 
-let AEqParse = binop (pchar '=') AexpParse AexpParse |>> AEq
+let AEqParse =
+    binop (pchar '=') AexpParse AexpParse |>> AEq
 
 let ANEqParse =
     binop (pstring "<>") AexpParse AexpParse
     |>> fun x -> x |> AEq |> Not
 
-let ALtParse = binop (pchar '<') AexpParse AexpParse |>> ALt
+let ALtParse =
+    binop (pchar '<') AexpParse AexpParse |>> ALt
 
-let CreateGt (a: aExp, b: aExp) = (b, a) |> ALt |> Not
-
+// This works, but it's as cursed as it gets
 let ALtOrEqParse =
     binop (pstring "<=") AexpParse AexpParse
-    |>> fun x -> x |> CreateGt
+    |>> (fun x -> (ALt x, AEq x |> Not |> Not) |> CreateDisj)
 
-let AGtParse = binop (pchar '>') AexpParse AexpParse |>> CreateGt
+let AGtParse =
+    binop (pchar '>') AexpParse AexpParse
+    |>> (fun x -> (AEq x |> Not, ALt x |> Not) |> Conj)
 
 let AGtOrEqParse =
     binop (pstring ">=") AexpParse AexpParse
-    |>> fun x -> x |> ALt |> Not
+    |>> fun x -> ALt x |> Not
+
 
 do
     eqref
