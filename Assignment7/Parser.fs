@@ -328,15 +328,31 @@ type boardProg =
 type word = (char * int) list
 type square = Map<int, squareFun>
 
-let parseSquareProg _ = failwith "not implemented"
-
-let parseBoardProg _ = failwith "not implemented"
+let parseSquareProg (sqp: squareProg) : square =
+    Map.map
+        (fun _ v ->
+            v
+            |> run stmntParse
+            |> getSuccess
+            |> stmntToSquareFun)
+        sqp
 
 type boardFun2 = coord -> StateMonad.Result<square option, StateMonad.Error>
+
+let parseBoardProg (s: string) (sqs: Map<int, square>) : boardFun2 =
+    run stmntParse s
+    |> getSuccess
+    |> (fun x -> stmntToBoardFun x sqs)
 
 type board =
     { center: coord
       defaultSquare: square
       squares: boardFun2 }
 
-let mkBoard (bp: boardProg) = failwith "not implemented"
+let mkBoard (bp: boardProg) : board =
+    let m' =
+        Map.map (fun _ v -> parseSquareProg v) bp.squares
+
+    { center = bp.center
+      defaultSquare = m'.[bp.usedSquare]
+      squares = parseBoardProg bp.prog m' }

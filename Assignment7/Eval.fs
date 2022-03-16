@@ -11,7 +11,8 @@ let hello =
       ('L', 1)
       ('O', 1) ]
 
-let state = mkState [ ("x", 5); ("y", 42) ] hello [ "_pos_"; "_result_" ]
+let state =
+    mkState [ ("x", 5); ("y", 42) ] hello [ "_pos_"; "_result_" ]
 
 let emptyState = mkState [] [] []
 
@@ -340,7 +341,7 @@ type coord = int * int
 
 type boardFun = coord -> Result<squareFun option, Error>
 
-let stmntToBoardFun (stm: stm) (squares: Map<int, squareFun>) : boardFun =
+let stmntToBoardFun (stm: stm) (squares: Map<int, 'a>) : coord -> Result<'a option, Error> =
     fun coord ->
         let state =
             mkState
