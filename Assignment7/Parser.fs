@@ -30,7 +30,7 @@ let pif = pstring "if"
 let pthen = pstring "then"
 let pelse = pstring "else"
 let pwhile = pstring "while"
-let pdo = pstring "pdo"
+let pdo = pstring "do"
 let pdeclare = pstring "declare"
 
 let pletter = asciiLetter <?> "letter"
@@ -47,6 +47,7 @@ let (.>*>) (p1: Parser<'a>) (p2: Parser<'b>) = p1 .>> spaces .>> p2
 let (>*>.) (p1: Parser<'a>) (p2: Parser<'b>) = p1 .>> spaces >>. p2
 
 let parenthesise p = pchar '(' >*>. p .>*> pchar ')'
+let brackethise p = pchar '{' >*>. p .>*> pchar '}'
 
 let charListToString (c: char, cs: list<char>) : string =
     c :: cs |> List.toArray |> System.String
@@ -55,10 +56,14 @@ let pid =
     (pchar '_' <|> pletter)
     .>>. (many (palphanumeric <|> pchar '_'))
     |>> charListToString
+    <?> "pid"
 
-let unop (p1: Parser<'a>) (p2: Parser<'b>) = p1 >*>. p2
-let binop a p1 p2 = p1 .>*> a .>*>. p2
-let methodOp (method: Parser<'a>) (argParser: Parser<'b>) = unop method (parenthesise argParser)
+let unop (p1: Parser<'a>) (p2: Parser<'b>) = p1 >*>. p2 <?> "unop"
+let binop a p1 p2 = p1 .>*> a .>*>. p2 <?> "binop"
+
+let methodOp (method: Parser<'a>) (argParser: Parser<'b>) =
+    unop method (parenthesise argParser)
+    <?> "methodOp"
 
 // ---------------------------------
 // Exercise 7.8
@@ -70,6 +75,7 @@ let CharParse, cref = createParserForwardedToRef<cExp> ()
 
 let TermBinOp c f =
     binop (pchar c) ProdParse TermParse |>> f
+    <?> "TermBinOp"
 
 let AddParse = TermBinOp '+' Add <?> "Add"
 let SubParse = TermBinOp '-' Sub <?> "Sub"
@@ -78,6 +84,7 @@ do tref := choice [ AddParse; SubParse; ProdParse ]
 
 let ProdBinOp c f =
     binop (pchar c) AtomParse ProdParse |>> f
+    <?> "ProdBinOp"
 
 let MulParse = ProdBinOp '*' Mul <?> "Mul"
 let DivParse = ProdBinOp '/' Div <?> "Div"
@@ -103,7 +110,7 @@ let VParse = pid |>> V <?> "Variable"
 
 let NParse = pint32 |>> N <?> "Int"
 
-let ParParse = parenthesise TermParse
+let ParParse = parenthesise TermParse <?> "Parentheses"
 
 let CharToIntParse =
     methodOp pCharToInt CharParse |>> CharToInt
@@ -163,12 +170,14 @@ let BMethodParse, bmref = createParserForwardedToRef<bExp> ()
 let ConjParse =
     binop (pstring "/\\") EqualityParse ConjunctionParse
     |>> Conj
+    <?> "Conjunction"
 
 let CreateDisj (a: bExp, b: bExp) = (Not a, Not b) |> Conj |> Not
 
 let DisjParse =
     binop (pstring "\\/") EqualityParse ConjunctionParse
-    |>> fun x -> CreateDisj x
+    |>> (fun x -> CreateDisj x)
+    <?> "Disjunction"
 
 do
     conref
@@ -178,26 +187,32 @@ do
 
 let AEqParse =
     binop (pchar '=') AexpParse AexpParse |>> AEq
+    <?> "Equal"
 
 let ANEqParse =
     binop (pstring "<>") AexpParse AexpParse
-    |>> fun x -> x |> AEq |> Not
+    |>> (fun x -> x |> AEq |> Not)
+    <?> "NotEqual"
 
 let ALtParse =
     binop (pchar '<') AexpParse AexpParse |>> ALt
+    <?> "LessThan"
 
 // This works, but it's as cursed as it gets
 let ALtOrEqParse =
     binop (pstring "<=") AexpParse AexpParse
     |>> (fun x -> (ALt x, AEq x |> Not |> Not) |> CreateDisj)
+    <?> "LessThanOrEqual"
 
 let AGtParse =
     binop (pchar '>') AexpParse AexpParse
     |>> (fun x -> (AEq x |> Not, ALt x |> Not) |> Conj)
+    <?> "GreaterThan"
 
 let AGtOrEqParse =
     binop (pstring ">=") AexpParse AexpParse
-    |>> fun x -> ALt x |> Not
+    |>> (fun x -> ALt x |> Not)
+    <?> "GreaterThanOrEqual"
 
 
 do
@@ -210,18 +225,26 @@ do
                 AGtOrEqParse
                 BMethodParse ]
 
-let NotParse = pchar '~' >>. ConjunctionParse |>> Not
+let NotParse =
+    pchar '~' >>. ConjunctionParse |>> Not <?> "Not"
 
-let IsDigitParse = methodOp pIsDigit CexpParse |>> IsDigit
+let IsDigitParse =
+    methodOp pIsDigit CexpParse |>> IsDigit
+    <?> "IsDigit"
 
-let IsLetterParser = methodOp pIsDigit CexpParse |>> IsLetter
+let IsLetterParser =
+    methodOp pIsDigit CexpParse |>> IsLetter
+    <?> "IsLetter"
 
-let IsVowellParse = methodOp pIsDigit CexpParse |>> IsVowel
+let IsVowellParse =
+    methodOp pIsDigit CexpParse |>> IsVowel
+    <?> "IsVowel"
 
-let TTParse = pTrue |>> fun _ -> TT
-let FFParse = pFalse |>> fun _ -> FF
+let TTParse = pTrue |>> (fun _ -> TT) <?> "True"
+let FFParse = pFalse |>> (fun _ -> FF) <?> "False"
 
-let ParBParse = parenthesise ConjunctionParse
+let ParBParse =
+    parenthesise ConjunctionParse <?> "BParentheses"
 
 do
     bmref
@@ -235,7 +258,59 @@ do
 
 let BexpParse = ConjunctionParse
 
-let stmntParse = pstring "not implemented"
+// ---------------------------------
+// Exercise 7.11
+// ---------------------------------
+let TopLevelParser, tsref = createParserForwardedToRef<stm> ()
+let StatementParser, sref = createParserForwardedToRef<stm> ()
+
+let SemicolonParser =
+    StatementParser .>*> pchar ';'
+    .>*>. TopLevelParser
+    |>> Seq
+    <?> "Semicolon"
+
+do
+    tsref
+    := choice [ SemicolonParser
+                StatementParser ]
+
+let AssignParser =
+    pid .>*> pstring ":=" .>*>. AexpParse |>> Ass
+    <?> "Assign"
+
+let DeclareParser =
+    pdeclare >>. spaces1 >>. pid |>> Declare
+    <?> "Declare"
+
+let getIf =
+    methodOp pif BexpParse .>*> pthen
+    .>*>. brackethise StatementParser
+
+let IfParser =
+    getIf |>> (fun (b, s1) -> ITE(b, s1, Skip))
+    <?> "If"
+
+let IfElseParser =
+    getIf .>*> pelse .>*>. brackethise StatementParser
+    |>> (fun ((b, s1), s2) -> ITE(b, s1, s2))
+    <?> "IfElse"
+
+let WhileParser =
+    methodOp pwhile BexpParse .>*> pdo
+    .>*>. brackethise StatementParser
+    |>> While
+    <?> "While"
+
+do
+    sref
+    := choice [ AssignParser
+                DeclareParser
+                IfElseParser
+                IfParser
+                WhileParser ]
+
+let stmntParse = TopLevelParser
 
 (* These five types will move out of this file once you start working on the project *)
 type coord = int * int
