@@ -4,6 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FourthQuestion.fs" />
     <Compile Include="ThirdQuestion.fs" />
     <Compile Include="FirstQuestion.fs" />
     <Compile Include="SecondQuestion.fs" />
