@@ -182,11 +182,11 @@ let barTail lst =
         function
         | [] -> c []
         | x :: xs -> 
-            let bin = foo x
+            let bin = fooTail x
             aux (fun y -> c (bin::y)) xs
 
             // Could also be written as
-            // aux (fun y -> c (foo x::y)) xs
+            // aux (fun y -> c (fooTail x::y)) xs
             // But that would have the side effect of the calculation being delayed until c is executed, which is not how bar works
 
     aux id lst
