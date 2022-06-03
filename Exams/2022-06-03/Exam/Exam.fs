@@ -53,12 +53,12 @@ let bitmap img = map (fun y -> if y <= 127uy then Square 0uy else Square 255uy) 
 
 (* Question 1.4 *)
 
-let rec fold folder acc = 
-    function
+let rec fold folder acc img = 
+    let f acc img = fold folder acc img
+    match img with
     | Square s -> folder acc s
     | Quad(s1,s2,s3,s4) ->
-        // FIXME: I'm sorry, for i have sinned
-        fold folder (fold folder (fold folder (fold folder acc s1) s2) s3) s4
+        f (f (f (f acc s1) s2) s3) s4
 
 let countWhite2 img = fold (fun acc y -> if y = 255uy then acc+1 else acc) 0 img 
 
@@ -89,13 +89,13 @@ let rec bar =
 
     A: 
         foo takes an integer and returns a string containing that ints binary representation (unless it's 0, then it returns empty string)
-        bar takes a list of integers and returns a list of strings which are the binary representation of the integers, in the same order
+        bar takes a list of integers and returns a list of strings which are the binary representation of the integers, in the same order, again, if the int is zero its an empty string
 
     Q: What would be appropriate names for functions
        foo and bar?
 
-    A: foo = toBinary or decimalToBinary
-       bar = listToBinary or decimalListToBinary
+    A: foo = toBinary or decimalToBinary (one could also say toBinaryString)
+       bar = listToBinary or decimalListToBinary (one could also say ..toBinaryString)
 
     Q: The function foo does not return reasonable results for all possible inputs.
        What requirements must we have on the input to foo in order to get reasonable results?
@@ -215,6 +215,7 @@ let print (m: matrix) =
 
 let failDimensions m1 m2 =
     // Note to self the "m2 roms" are in the assignment, i did not misspell that
+    // 10:56 this has been noticed, and i've decided to simply keep it as is
     failwith (sprintf $"Invalid matrix dimensions: m1 rows = %d{numRows m1}, m1 columns = %d{numCols m1}, m2 roms = %d{numRows m2}, m2 columns = %d{numCols m2}")
 
 (* Question 3.2 *)
@@ -272,12 +273,42 @@ type stackProgram = cmd list
 
 (* Question 4.1 *)
 
-type stack = unit (* replace this entire type with your own *)
-let emptyStack _ = failwith "not implemented"
+type stack = int list 
+let emptyStack () = []: stack 
 
 (* Question 4.2 *)
+// Push and pop (simple) called so because of push and pop later
+let pushS x stack = x :: stack
+let popS = 
+    function
+    | [] -> failwith "empty stack"
+    | x :: stack -> (x, stack)
 
-let runStackProgram _ = failwith "not implemented"
+// Do a binary op
+let binOp op stack =
+    let (x, stack) = popS stack
+    let (y, stack) = popS stack
+
+    pushS (op x y) stack
+
+// add and mult stack
+let addS = binOp (+)
+let multS = binOp (*)
+
+// Before noticing that this may be called something wrong, please look right below this method
+let runStackProg (prog: stackProgram) = 
+    let rec aux stack =
+        function
+        | [] -> stack
+        | (Push x)::prog -> aux (pushS x stack) prog
+        | (Add)::prog -> aux (addS stack) prog
+        | (Mult)::prog -> aux (multS stack) prog
+
+    prog
+    |> aux (emptyStack ())
+    |> popS |> fst
+
+let runStackProgram = runStackProg // It was called runStackProgram in the template, but not in the pdf
 
 (* Question 4.3 *)
 
@@ -299,8 +330,14 @@ let (>>>=) x y = x >>= (fun _ -> y)
 
 let evalSM (SM f) = f (emptyStack ())
 
-let push _ = failwith "not implemented"
-let pop _ = failwith "not implemented"
+let push x = 
+    SM(fun s -> Some ((), x::s))
+
+let pop = SM(
+        function
+        | [] -> None
+        | x::s -> Some(x, s)
+    ) 
 
 (* Question 4.4 *)
 
@@ -313,10 +350,92 @@ type StateBuilder() =
 
 let state = new StateBuilder()
 
-let runStackProg2 _ = failwith "not implemented"
+let runStackProg2 prog =
+    let binOp operator =
+        state {
+            let! x = pop
+            let! y = pop
+
+            do! push (operator x y)
+        }
+
+    let rec aux prog =
+        state {
+            match prog with
+            | [] -> return! pop
+            | (Push x)::prog -> 
+                do! push x
+                return! aux prog
+            | (Add)::prog -> 
+                do! binOp (+)
+                return! aux prog
+            | (Mult)::prog ->
+                do! binOp (*)
+                return! aux prog 
+        }
+
+    aux prog
 
 (* Question 4.5 *)
 
 open JParsec.TextParser
 
-let parseStackProg _ = failwith "not implemented"
+let whitespaceChar =
+    satisfy System.Char.IsWhiteSpace <?> "whitespace"
+
+let spaces = many whitespaceChar <?> "space"
+
+let (.>*>) (p1: Parser<'a>) (p2: Parser<'b>) = p1 .>> spaces .>> p2
+let (>*>.) (p1: Parser<'a>) (p2: Parser<'b>) = p1 .>> spaces >>. p2
+
+let pspush = pstring "PUSH"
+let psadd = pstring "ADD"
+let psmult = pstring "MULT"
+
+let newline = pchar '\n'
+
+let lineparser parser mapper label =
+    spaces
+    >>. parser
+    |>> mapper <?> label
+
+let ppush = lineparser (pspush >*>. pint32) (Push) "push"
+let padd = lineparser (psadd) (fun _ -> Add) "add"
+let pmul = lineparser (psmult) (fun _ -> Mult) "mult"
+
+let pprog = 
+    (choice [ppush; padd; pmul])
+    |> many1
+
+(* 
+    ================
+    Please read me
+    ================
+    The assignment says that parseStackProg must be of type "string -> ParserResult<stackProgram>"
+    The only way of getting a ParserResult from JParsec is to run the parser, you can then get the result afterwards
+    My problem here is that according to the example :
+        
+        "PUSH 5\nPUSH 4     \nADD\n    PUSH8\nMULT          \n"
+        |> run parseStackProg
+        |> getSuccess
+        ... (more code)
+    
+    we are supposed to output a Parser<stackProgram> which is inputted into run, that directly conflicts with the information written in the assignment
+    The "correct" example would be
+    
+        "PUSH 5\nPUSH 4     \nADD\n    PUSH8\nMULT          \n"
+        parseStaackProg
+        |> getSuccess
+        ... (more code)
+    
+    That does not suit the way we usually do these assignments though.
+    I'm going to follow the information of the assignment and not the example, i've commented a solution below it that fits the example, i hope thats okay
+    PS. i tried to highlight this to the exam inviligators(?), but failed to explain it properly 
+ *)
+let parseStackProg str =
+    run pprog str
+
+// let parseStackProg =
+//     pprog
+
+
