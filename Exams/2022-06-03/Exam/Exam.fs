@@ -65,9 +65,9 @@ let countWhite2 img = fold (fun acc y -> if y = 255uy then acc+1 else acc) 0 img
 (* 2: Code Comprehension *)
 let rec foo =
     function
-    | 0 -> ""
-    | x when x % 2 = 0 -> foo (x / 2) + "0"
-    | x when x % 2 = 1 -> foo (x / 2) + "1"
+    | 0 -> "" // Base case
+    | x when x % 2 = 0 -> foo (x / 2) + "0" // When x is even, run foo with half x (int division) and add "0" to the result
+    | x when x % 2 = 1 -> foo (x / 2) + "1" // When x is uneven, run foor with half x (int division) and add "1" to the result
 
 let rec bar =
     function
@@ -80,23 +80,27 @@ let rec bar =
 
     Q: What are the types of functions foo and bar?
 
-    A: <Your answer goes here>
+    A: foo has type "int -> string"
+       bar has type "int list -> string list"
 
 
-    Q: What does the function bar do.
+    Q: What does the functions foo and bar do.
        Focus on what it does rather than how it does it.
 
-    A: <Your answer goes here>
+    A: 
+        foo takes an integer and returns a string containing that ints binary representation (unless it's 0, then it returns empty string)
+        bar takes a list of integers and returns a list of strings which are the binary representation of the integers, in the same order
 
     Q: What would be appropriate names for functions
        foo and bar?
 
-    A: <Your answer goes here>
+    A: foo = toBinary or decimalToBinary
+       bar = listToBinary or decimalListToBinary
 
     Q: The function foo does not return reasonable results for all possible inputs.
        What requirements must we have on the input to foo in order to get reasonable results?
 
-    A: <Your answer goes here>
+    A: foo must be run with a number above 0 (x > 0), as the binary representation of 0 is 0, in this case it just returns empty string which is wrong
     *)
 
 
@@ -109,15 +113,20 @@ let rec bar =
 
     Q: What warning and why?
 
-    A: <Your answer goes here>
+    A:  The warning is "Incomplete pattern matches on this expression....."
+        The warning happens because calculating wether or not pattern match guards are exhaustive is complicated, so F# doesn't try. Therefore even though our pattern match is exhaustive it still tells us that it might not be.
 
     *)
 
-let foo2 _ = failwith "not implemented"
+let rec foo2 = 
+    function
+    | 0 -> "" // This bug is kept as it must behave the same way for all possible inputs :(
+    | x when x % 2 = 0 -> foo (x / 2) + "0"
+    | x -> foo (x / 2) + "1" // We've handled all other cases
 
 (* Question 2.3 *)
 
-let bar2 _ = failwith "not implemented"
+let bar2 list = List.map (foo) list
 
 (* Question 2.4 *)
 
@@ -130,20 +139,57 @@ let bar2 _ = failwith "not implemented"
        Keep in mind that all steps in an evaluation chain must evaluate to the same value
        ((5 + 4) * 3 --> 9 * 3 --> 27, for instance).
 
-    A: <Your answer goes here>
+    A: 
+        Let's evaluate a call of bar
+        bar [0;1;2;3]
+        "" :: (bar [1;2;3])
+        "" :: ("1" :: (bar [2;3]))
+        "" :: ("1" :: ("10" :: (bar [3])))
+        "" :: ("1" :: ("10" :: ("11" :: (bar []))))
+        "" :: ("1" :: ("10" :: ("11" :: [])))
+        "" :: ("1" :: ("10" :: ["11"]))
+        "" :: ("1" :: ["10"; "11"])
+        "" :: ["1";"10"; "11"]
+        [""; "1";"10"; "11"]
+
+        As observed it's not tail recursive as the result of calling (foo x) cannot be appended to the list as until the computation of (bar xs) is completed. So it depends on it's own call
 
     Q: Even though neither `foo` nor `bar` is tail recursive only one of them runs the risk of overflowing the stack.
        Which one and why does  the other one not risk overflowing the stack?
 
-    A: <Your answer goes here>
+    A: 
+        bar is the one that risks it.
+        foo has an upper limit to it's size, as it uses an int32 and therefore is limited by its size.
+        bar on the other hand can overflow the stack as a list can be infinite and it could therefore, in theory, create infinite append calls that await execution
 
     *)
 (* Question 2.5 *)
 
-let fooTail _ = failwith "not implemented"
+let fooTail x = 
+    let rec aux acc =
+        function
+        | 0 -> acc |> String.concat ""
+        | x when x % 2 = 0 -> aux ("0" :: acc) (x/2)
+        // I've fixed the compiler warning, but the original line is here:
+        // | x when x % 2 = 1 -> aux ('1' :: acc) (x/2)
+        | x -> aux ("1" :: acc) (x/2)
+    
+    aux [] x
 
 (* Question 2.6 *)
-let barTail _ = failwith "not implemented"
+let barTail lst =
+    let rec aux c =
+        function
+        | [] -> c []
+        | x :: xs -> 
+            let bin = foo x
+            aux (fun y -> c (bin::y)) xs
+
+            // Could also be written as
+            // aux (fun y -> c (foo x::y)) xs
+            // But that would have the side effect of the calculation being delayed until c is executed, which is not how bar works
+
+    aux id lst
 
 (* 3: Matrix operations *)
 
