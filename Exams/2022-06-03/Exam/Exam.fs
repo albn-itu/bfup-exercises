@@ -296,7 +296,7 @@ let addS = binOp (+)
 let multS = binOp (*)
 
 // Before noticing that this may be called something wrong, please look right below this method
-let runStackProg (prog: stackProgram) = 
+let runStackProgram (prog: stackProgram) = 
     let rec aux stack =
         function
         | [] -> stack
@@ -308,7 +308,7 @@ let runStackProg (prog: stackProgram) =
     |> aux (emptyStack ())
     |> popS |> fst
 
-let runStackProgram = runStackProg // It was called runStackProgram in the template, and in the assignment, but not in the example
+let runStackProg = runStackProgram // It was called runStackProgram in the template, and in the assignment, but not in the example
 
 (* Question 4.3 *)
 
@@ -432,10 +432,11 @@ let pprog =
     I'm going to follow the information of the assignment and not the example, i've commented a solution below it that fits the example, i hope thats okay
     PS. i tried to highlight this to the exam inviligators(?), but failed to explain it properly 
  *)
-let parseStackProg str =
+let parseStackProgram str =
     run pprog str
 
 // let parseStackProg =
 //     pprog
 
 
+let parseStackProg = parseStackProgram
