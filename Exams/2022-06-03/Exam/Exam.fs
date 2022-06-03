@@ -308,7 +308,7 @@ let runStackProg (prog: stackProgram) =
     |> aux (emptyStack ())
     |> popS |> fst
 
-let runStackProgram = runStackProg // It was called runStackProgram in the template, but not in the pdf
+let runStackProgram = runStackProg // It was called runStackProgram in the template, and in the assignment, but not in the example
 
 (* Question 4.3 *)
 
