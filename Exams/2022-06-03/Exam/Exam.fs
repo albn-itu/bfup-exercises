@@ -210,24 +210,56 @@ let print (m: matrix) =
 
         printfn ""
 
+
 (* Question 3.1 *)
 
-let failDimensions _ = failwith "not implemented"
+let failDimensions m1 m2 =
+    // Note to self the "m2 roms" are in the assignment, i did not misspell that
+    failwith (sprintf $"Invalid matrix dimensions: m1 rows = %d{numRows m1}, m1 columns = %d{numCols m1}, m2 roms = %d{numRows m2}, m2 columns = %d{numCols m2}")
 
 (* Question 3.2 *)
+let add m1 m2 =
+    if numRows m1 <> numRows m2 then failDimensions m1 m2
+    if numCols m1 <> numCols m2 then failDimensions m1 m2 // else if isn't necessary as it fails
 
-let add _ = failwith "not implemented"
+    init (fun x y -> (get m1 x y) + (get m2 x y)) (numRows m1) (numCols m1)
 
 (* Question 3.3 *)
 
 let m1 = (init (fun i j -> i * 3 + j + 1) 2 3)
 let m2 = (init (fun j k -> j * 2 + k + 1) 3 2)
 
-let dotProduct _ = failwith "not implemented"
-let mult _ = failwith "not implemented"
+let dotProduct m1 m2 row col =
+    let rec aux acc =
+        function
+        | -1 -> acc
+        | x -> aux (acc + (get m1 row x) * (get m2 x col)) (x-1)
+
+    aux 0 (numRows m1)
+
+let mult m1 m2 =
+    if numCols m1 <> numRows m2 then failDimensions m1 m2
+    if numRows m1 <> numCols m2 then failDimensions m1 m2 // else if isn't necessary as it fails
+
+    init (fun x y -> dotProduct m1 m2 x y) (numRows m1) (numCols m2)
 
 (* Question 3.4 *)
-let parInit _ = failwith "not implemented"
+let parInit f rows cols =
+    let calc matrix (row, col) =
+        async {
+            set matrix row col (f row col)
+        }
+
+    let m = init (fun _ _ -> 0) rows cols
+
+    // [0..x] includes x, so since indexes start at 0 we remove 1 
+    List.allPairs [0..rows-1] [0..cols-1]
+    |> List.map (calc m)
+    |> Async.Parallel
+    |> Async.RunSynchronously
+    |> ignore
+
+    m
 
 (* 4: Stack machines *)
 
